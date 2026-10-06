@@ -18,7 +18,7 @@ struct Avatar {
 class HomeViewController: BaseViewController, UICollectionViewDelegate, UICollectionViewDataSource, CLLocationManagerDelegate {
     
     @IBOutlet weak var cardView: UIView!
-    @IBOutlet weak var avtarProfile: UIButton!
+//    @IBOutlet weak var avtarProfile: UIButton!
     @IBOutlet weak var greetingLabel: UILabel!
     
     @IBOutlet weak var okButton: UIButton!
@@ -85,8 +85,8 @@ class HomeViewController: BaseViewController, UICollectionViewDelegate, UICollec
         super.viewDidLayoutSubviews()
         
         
-        avtarProfile.layer.cornerRadius = avtarProfile.frame.height / 2
-        avtarProfile.clipsToBounds = true
+//        avtarProfile.layer.cornerRadius = avtarProfile.frame.height / 2
+//        avtarProfile.clipsToBounds = true
         
         
     }
@@ -115,7 +115,7 @@ class HomeViewController: BaseViewController, UICollectionViewDelegate, UICollec
 
             
         } else {
-            
+            print("calling else condition")
             cell.avatarButton.configuration = nil
             cell.avatarButton.setTitle("+", for: .normal)
             cell.nameLabel.text = "Invite"

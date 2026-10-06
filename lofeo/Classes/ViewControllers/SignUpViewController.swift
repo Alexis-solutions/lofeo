@@ -36,7 +36,7 @@ class SignUpViewController: UIViewController , UITextViewDelegate, CLLocationMan
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        scrollView.contentInsetAdjustmentBehavior = .never
+       scrollView.contentInsetAdjustmentBehavior = .never
         NotificationCenter.default.addObserver(self,
                 selector: #selector(keyboardWillShow),
                 name: UIResponder.keyboardWillShowNotification,
@@ -235,9 +235,15 @@ class SignUpViewController: UIViewController , UITextViewDelegate, CLLocationMan
     }
             
        
+    @IBAction func logInBtn(_ sender: Any) {
+        if   let vc = storyboard?.instantiateViewController(withIdentifier: "SignInViewController") as? SignInViewController{
+            navigationController?.pushViewController(vc, animated: true)
+            
+        }
+    }
     
     @IBAction func SignUpFunc(_ sender: Any) {
-        
+    
         if currentLocation == nil {
                 
                 isSignupPending = true
@@ -249,7 +255,7 @@ class SignUpViewController: UIViewController , UITextViewDelegate, CLLocationMan
       
         
         proceedSignup()
-        }
+    }
     
     func proceedSignup(){
         
