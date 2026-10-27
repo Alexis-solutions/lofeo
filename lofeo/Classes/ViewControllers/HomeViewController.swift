@@ -53,6 +53,7 @@ class HomeViewController: BaseViewController, UICollectionViewDelegate, UICollec
         locationManager.desiredAccuracy = kCLLocationAccuracyBest
         locationManager.requestWhenInUseAuthorization()
         fetchUserData()
+        
        }
     
    
@@ -91,8 +92,7 @@ class HomeViewController: BaseViewController, UICollectionViewDelegate, UICollec
         
     }
     func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
-        return min(members.count + 1, 4) // + button included
-//        return members.count + 1
+       return members.count + 1
     }
     
     func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
@@ -137,15 +137,17 @@ class HomeViewController: BaseViewController, UICollectionViewDelegate, UICollec
             let vc = storyboard?.instantiateViewController(withIdentifier: "CircleViewController") as! CircleViewController
             navigationController?.pushViewController(vc, animated: true)
             
-        } else {
-            
-            let message = "You are Invited to download LOFEO app"
-            let activityVC = UIActivityViewController(
-                activityItems: [message],
-                applicationActivities: nil
-            )
-            
-            present(activityVC, animated: true)
+        } else if indexPath.item == members.count {
+//            print("Anita")
+//            let message = "You are Invited to download LOFEO app"
+//            let activityVC = UIActivityViewController(
+//                activityItems: [message],
+//                applicationActivities: nil
+//            )
+//            
+//            present(activityVC, animated: true)
+            let vc = storyboard?.instantiateViewController(withIdentifier: "InviteViewController") as! InviteViewController
+            navigationController?.pushViewController(vc, animated: true)
             
         }
     }
@@ -193,9 +195,9 @@ class HomeViewController: BaseViewController, UICollectionViewDelegate, UICollec
     func fetchMembers(fullPhone: String, communityId: String) {
         let ref = Database.database().reference()
             
-        ref.child("Community")
+        ref.child("UserRelationships")
             .child(fullPhone)
-            .child(communityId)
+            .child("IWatchThem")
             .child("members")
                 .observeSingleEvent(of: .value) { snapshot in
                     var fetchedMembers: [Member] = []
@@ -208,7 +210,7 @@ class HomeViewController: BaseViewController, UICollectionViewDelegate, UICollec
                             fetchedMembers.append(Member(name: name, phone: phone))
                         }
                     }
-                    print(fetchedMembers.count)
+                    print("fetchedMembers ",fetchedMembers.count)
                     DispatchQueue.main.async {
                         self.members = fetchedMembers
                         self.collectionView.reloadData()
@@ -242,10 +244,10 @@ class HomeViewController: BaseViewController, UICollectionViewDelegate, UICollec
                 
                 }
             
-            ref.child("Community")
+            ref.child("UserRelationships")
                 .child(self.fullPhone)
-                .child(self.communityId)
-                .child("members")
+                .child("IWatchThem")
+                
                     .observeSingleEvent(of: .value) { snapshot in
                         var fetchedMembers: [Member] = []
 
@@ -254,13 +256,13 @@ class HomeViewController: BaseViewController, UICollectionViewDelegate, UICollec
                              for (_, value) in data {
                                  
                                  if let memberData = value as? [String: Any],
-                                    let name = memberData["name"] as? String,
-                                    let phone = memberData["phone"] as? String {
+                                    let name = memberData["comName"] as? String,
+                                    let phone = memberData["comPhoneNumber"] as? String {
                                      fetchedMembers.append(Member(name: name, phone: phone))
                                  }
                              }
                         }
-                        print(fetchedMembers.count)
+                        print("fatche",fetchedMembers.count)
                         DispatchQueue.main.async {
                             self.members = fetchedMembers
                            self.collectionView.reloadData()

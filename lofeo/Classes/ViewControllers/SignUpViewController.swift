@@ -9,8 +9,11 @@ import FirebaseAuth
 import FirebaseFirestore
 import FirebaseDatabase
 import CoreLocation
+import FirebaseMessaging
 
 class SignUpViewController: UIViewController , UITextViewDelegate, CLLocationManagerDelegate {
+    
+    var loader: UIActivityIndicatorView?
     
     @IBOutlet weak var nameTF: UITextField!
     @IBOutlet weak var emailTF: UITextField!
@@ -19,7 +22,7 @@ class SignUpViewController: UIViewController , UITextViewDelegate, CLLocationMan
     @IBOutlet weak var passwordTF: UITextField!
     @IBOutlet weak var confirmPasswordTF: UITextField!
     @IBOutlet weak var termsButton: UIButton!
-    @IBOutlet weak var termsTextView: UITextView!
+    @IBOutlet weak var termsTextView: UILabel!
     @IBOutlet weak var countryCodeButton: UIButton!
    @IBOutlet weak var sosCountryCodeButton: UIButton!
     @IBOutlet weak var scrollView: UIScrollView!
@@ -69,8 +72,9 @@ class SignUpViewController: UIViewController , UITextViewDelegate, CLLocationMan
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        navigationController?.setNavigationBarHidden(false, animated: false)
+        navigationController?.setNavigationBarHidden(true, animated: false)
     }
+    
     @objc func dismissKeyboard() {
         view.endEditing(true)
     }
@@ -131,10 +135,8 @@ class SignUpViewController: UIViewController , UITextViewDelegate, CLLocationMan
                                           range: NSRange(location: 0, length: fullText.count))
         termsTextView.backgroundColor = .softLinen
             termsTextView.attributedText = attributedString
-        termsTextView.textContainerInset = .zero
-        termsTextView.textContainer.lineFragmentPadding = 0
-            termsTextView.textAlignment = .left
-            termsTextView.delegate = self
+        termsTextView.textAlignment = .left
+        termsTextView.numberOfLines = 0
         
     }
     
@@ -193,7 +195,7 @@ class SignUpViewController: UIViewController , UITextViewDelegate, CLLocationMan
  
     func validateFields() -> String? {
 
-        if nameTF.text?.isEmpty == true ||
+         if nameTF.text?.isEmpty == true ||
             emailTF.text?.isEmpty == true ||
             phoneTF.text?.isEmpty == true ||
             sosTF.text?.isEmpty == true ||
@@ -205,7 +207,11 @@ class SignUpViewController: UIViewController , UITextViewDelegate, CLLocationMan
         if passwordTF.text != confirmPasswordTF.text {
             return "Passwords do not match"
         }
+        if phoneTF.text == sosTF.text {
+            return "Phone No and SOS No cannot be the same"
+        }
 
+        
         if !isTermsAccepted {
             return "Please accept terms & conditions"
         }
@@ -243,139 +249,159 @@ class SignUpViewController: UIViewController , UITextViewDelegate, CLLocationMan
     }
     
     @IBAction func SignUpFunc(_ sender: Any) {
-    
+ 
         if currentLocation == nil {
-                
-                isSignupPending = true
+           isSignupPending = true
                  locationManager.delegate = self
                 locationManager.startUpdatingLocation()
                 return
             }
        
-      
-        
-        proceedSignup()
+       proceedSignup()
     }
     
-    func proceedSignup(){
-        
-        guard let location = currentLocation else { return }
-           
-            latitude = location.coordinate.latitude
-            longitude = location.coordinate.longitude
-        print("Lat: \(latitude), Lng: \(longitude)")
-        
+    
+   
+    
+    func proceedSignup() {
+        showLoader()
+
+        guard let location = currentLocation else {
+            print("Location is not available")
+            return
+        }
+
+        latitude = location.coordinate.latitude
+        longitude = location.coordinate.longitude
+
         if let error = validateFields() {
             showAlert(message: error)
             return
         }
-        
-        let email = emailTF.text!
-        let password = passwordTF.text!
-        
-        Auth.auth().createUser(withEmail: email, password: password) { authResult, error in
+
+        let email = emailTF.text ?? ""
+        let password = passwordTF.text ?? ""
+
+        Auth.auth().createUser(withEmail: email, password: password) {
+            [weak self] authResult, error in
+
+            guard let self = self else { return }
+
             if let error = error {
                 print("Signup error: \(error.localizedDescription)")
+                self.showAlert(message: error.localizedDescription)
                 return
             }
-            
-            guard let user = authResult?.user else { return }
-            
-//            user.sendEmailVerification { error in
-//                        if let error = error {
-//                            print("Email verification send error:", error.localizedDescription)
-//                            return
-//                        }
-//                        
-//                        print("Verification email sent ✅")
-//                    }
-//            
-    
+
+            guard authResult?.user != nil else { return }
+
+            let username = self.nameTF.text ?? ""
             let fullPhone = self.phoneCode + (self.phoneTF.text ?? "")
             let sosFullPhone = self.sosCode + (self.sosTF.text ?? "")
 
-                    let regDate = Date()
-                    let subStart = Date()
-                    let subEnd = Calendar.current.date(byAdding: .day, value: 7, to: Date()) ?? Date()
+            let regDate = Date()
+            let subStart = Date()
+            let subEnd = Calendar.current.date(
+                byAdding: .day,
+                value: 7,
+                to: subStart
+            ) ?? subStart
 
-                    let dbEmail = email.replacingOccurrences(of: ".", with: "*")
+            let dbEmail = email.replacingOccurrences(
+                of: ".",
+                with: "*"
+            )
 
-                    let userData: [String: Any] = [
-                        "email": email,
-                        "username": self.nameTF.text ?? "",
-                        "registration_date": "\(regDate)",
-                        "subscription_type": "Trial",
-                        "subscription_start": "\(subStart)",
-                        "subscription_end": "\(subEnd)",
-                        "user_phone": fullPhone,
-                        "sos_phone": sosFullPhone,
-                        "device": "iOS",
-                        "communities": []
-                    ]
+            // Fetch FCM token before saving user data
+            Messaging.messaging().token { fcmToken, tokenError in
 
-                    let ref = Database.database().reference()
-            let communityId = "default"
+                if let tokenError = tokenError {
+                    print(
+                        "FCM token error: \(tokenError.localizedDescription)"
+                    )
+                }
 
-                    // 📡 Save UserDB
-                    ref.child("UserDB").child(dbEmail).setValue(userData) { error, _ in
-                        if let error = error {
-                            print("UserDB error: \(error.localizedDescription)")
-                            return
+                let token = fcmToken ?? ""
+                print("FCM Token: \(token)")
+
+                // User information
+                let userData: [String: Any] = [
+                    "email": email,
+                    "username": username,
+                    "registration_date": "\(regDate)",
+                    "subscription_type": "Trial",
+                    "subscription_start": "\(subStart)",
+                    "subscription_end": "\(subEnd)",
+                    "user_phone": fullPhone,
+                    "sos_phone": sosFullPhone,
+                    "device": "iOS",
+                    "fcm_token": token
+                ]
+
+                // User location
+                let personLoc: [String: Any] = [
+                    "latitude": self.latitude,
+                    "longitude": self.longitude,
+                    "label": username
+                ]
+
+                // User relationships
+                let userRelationships: [String: Any] = [
+                    "TheyWatchMe": [String: Any](),
+                    "IWatchThem": [String: Any]()
+                ]
+
+                let communityId = "default"
+
+                // Save all data to Firebase Realtime Database
+                let ref = Database.database().reference()
+
+                let updates: [String: Any] = [
+                    "UserDB/\(dbEmail)": userData,
+
+                    "UserLoc/\(fullPhone)": personLoc,
+
+                    "UserRelationships/\(fullPhone)": userRelationships
+                ]
+
+                ref.updateChildValues(updates) { error, _ in
+
+                    if let error = error {
+                        print(
+                            "User registration failed: \(error.localizedDescription)"
+                        )
+
+                        DispatchQueue.main.async {
+                            self.showAlert(
+                                message: "Failed to register user: \(error.localizedDescription)"
+                            )
                         }
+                        return
+                    }
 
-                        print("User registered successfully")
+                    print("User registered successfully")
+                    print("User location saved")
+                    print("User relationships saved")
+                    print("Community created")
 
-                        // Save Location (UserLoc)
-                        let personLoc: [String: Any] = [
-                            "latitude": self.latitude,
-                            "longitude": self.longitude
-                        ]
+                    DispatchQueue.main.async {
+                        if let vc = self.storyboard?
+                            .instantiateViewController(
+                                withIdentifier: "ProfileSelectionViewController"
+                            ) as? ProfileSelectionViewController {
 
-                        ref.child("UserLoc").child(fullPhone).setValue(personLoc) { error, _ in
-                            if let error = error {
-                                print("UserLoc error: \(error.localizedDescription)")
-                                return
-                            }
-                            print("Location registered successfully")
-                            
-                            
-                            ref.child("Community")
-                                .child(fullPhone)
-                                .child(communityId)
-                                .setValue([
-                                    "createdBy": fullPhone,
-                                    "createdAt": Date().timeIntervalSince1970
-                                ]) { error, _ in
-                                            if let error = error {
-                                                print("Community error: \(error.localizedDescription)")
-                                            } else {
-                                                print("Added to community")
-                                                
-                                                // 🚀 Navigate to Home
-                                                if let vc = self.storyboard?.instantiateViewController(withIdentifier: "HomeViewController") as? HomeViewController {
-                                                    self.navigationController?.pushViewController(vc, animated: true)
-                                                }
-                                            }
-                                        }
-                            
-                            
-//                            else {
-                                //                                print("Location registered")
-                                //                                return
-                                //                                // 🚀 Navigate to Home
-                                //                                if let vc = self.storyboard?.instantiateViewController(withIdentifier: "HomeViewController") as? HomeViewController {
-                                //                                    self.navigationController?.pushViewController(vc, animated: true)
-                                //                                }
-//                            }
+                            self.navigationController?
+                                .pushViewController(vc, animated: true)
                         }
-                   
-                      
-                        
+                    }
                 }
             }
+        }
     }
     
     
+    
+
   
   
     @IBAction func phoneCodeTapped(_ sender: UIButton) {
@@ -405,7 +431,7 @@ class SignUpViewController: UIViewController , UITextViewDelegate, CLLocationMan
                  button.setTitle(item.0, for: .normal)   // dynamic button
                 button.setTitle(item.0, for: .normal)  // ✅ set UI
                            
-                           // ✅ store value based on button
+                           // store value based on button
                            if button == self.countryCodeButton {
                                self.phoneCode = item.0
                            } else if button == self.sosCountryCodeButton {
@@ -417,6 +443,21 @@ class SignUpViewController: UIViewController , UITextViewDelegate, CLLocationMan
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
 
         present(alert, animated: true)
+    }
+    
+    func showLoader() {
+        loader = UIActivityIndicatorView(style: .large)
+        loader?.center = self.view.center
+        loader?.startAnimating()
+        loader?.hidesWhenStopped = true
+        
+        view.addSubview(loader!)
+        view.isUserInteractionEnabled = false // prevent clicks
+    }
+
+    func hideLoader() {
+        loader?.stopAnimating()
+        view.isUserInteractionEnabled = true
     }
     
     

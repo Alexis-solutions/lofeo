@@ -20,18 +20,18 @@ class SettingsViewController: BaseViewController,CLLocationManagerDelegate {
         super.viewDidLoad()
         
 
-        selectButton.layer.borderWidth = 1
-        selectButton.layer.borderColor = UIColor.lightGray.cgColor
-        durationButton.layer.borderWidth = 1
-        durationButton.layer.borderColor = UIColor.lightGray.cgColor
-        
-        setupPopup()
-        setupDurationButtonPopup()
+//        selectButton.layer.borderWidth = 1
+//        selectButton.layer.borderColor = UIColor.lightGray.cgColor
+//        durationButton.layer.borderWidth = 1
+//        durationButton.layer.borderColor = UIColor.lightGray.cgColor
+//        
+//        setupPopup()
+//        setupDurationButtonPopup()
         
     }
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        updateSwitchState()
+       // updateSwitchState()
     }
     
     @IBAction func locationSwitchChanged(_ sender: UISwitch) {

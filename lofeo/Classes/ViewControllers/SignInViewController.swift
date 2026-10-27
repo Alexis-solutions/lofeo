@@ -96,6 +96,7 @@ class SignInViewController:   UIViewController {
 
         if emailTF.text?.isEmpty == true ||
             passwordTF.text?.isEmpty == true {
+            hideLoader()
             return "Please enter email and password"
         }
 
@@ -162,6 +163,7 @@ class SignInViewController:   UIViewController {
             Auth.auth().signIn(withEmail: email, password: password) { result, error in
 
                 if let error = error {
+                    self.hideLoader()
                     self.showAlert(message: error.localizedDescription)
                     return
                 }

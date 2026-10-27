@@ -10,11 +10,14 @@ import UIKit
 class OnboardingOne: UIViewController {
     
     override func viewDidLoad() {
-       
-        super.viewDidLoad()
+       super.viewDidLoad()
      
     }
     
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        navigationController?.setNavigationBarHidden(true, animated: false)
+    }
     
     @IBAction func startBtn(_ sender: UIButton) {
       if  let vc = storyboard?.instantiateViewController(withIdentifier: "OnboardingTwo") as? OnboardingTwo {

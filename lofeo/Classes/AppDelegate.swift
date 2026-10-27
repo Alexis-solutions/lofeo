@@ -9,6 +9,7 @@ import UIKit
 import FirebaseCore
 import FirebaseAuth
 import FirebaseMessaging
+import UserNotifications
 
 
 @main
@@ -19,21 +20,26 @@ class AppDelegate: UIResponder, UIApplicationDelegate ,UNUserNotificationCenterD
   func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
       FirebaseApp.configure()
 
-             // Notification Permission
-             UNUserNotificationCenter.current().delegate = self
-             let authOptions: UNAuthorizationOptions = [.alert, .badge, .sound]
+         UNUserNotificationCenter.current().delegate = self
+         Messaging.messaging().delegate = self
 
-             UNUserNotificationCenter.current().requestAuthorization(
-                 options: authOptions,
-                 completionHandler: { _, _ in }
-             )
+         UNUserNotificationCenter.current().requestAuthorization(
+             options: [.alert, .badge, .sound]
+         ) { granted, error in
 
-             application.registerForRemoteNotifications()
+             if let error = error {
+                 print("Notification permission error: \(error.localizedDescription)")
+                 return
+             }
 
-             // Messaging Delegate
-             Messaging.messaging().delegate = self
+             print("Notification permission granted: \(granted)")
 
-             return true
+             DispatchQueue.main.async {
+                 application.registerForRemoteNotifications()
+             }
+         }
+
+         return true
     }
     
     // MARK: - APNs Token
@@ -41,6 +47,23 @@ class AppDelegate: UIResponder, UIApplicationDelegate ,UNUserNotificationCenterD
                          didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
 
             Messaging.messaging().apnsToken = deviceToken
+
+               print("APNs token received successfully")
+
+               // Retrieve FCM token only after APNs registration.
+               Messaging.messaging().token { token, error in
+                   if let error = error {
+                       print("FCM token error: \(error.localizedDescription)")
+                       return
+                   }
+
+                   guard let token = token else {
+                       print("FCM token is empty")
+                       return
+                   }
+
+                   print("FCM Token: \(token)")
+               }
         }
 
     // MARK: - FCM Token
@@ -80,7 +103,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate ,UNUserNotificationCenterD
                                     withCompletionHandler completionHandler:
                                     @escaping (UNNotificationPresentationOptions) -> Void) {
             
-            print("📩 Notification received (foreground)")
+            print(" Notification received (foreground)")
             print(notification.request.content.userInfo)
             completionHandler([.alert, .badge, .sound])
         }

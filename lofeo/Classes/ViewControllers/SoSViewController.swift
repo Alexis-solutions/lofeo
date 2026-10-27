@@ -8,10 +8,10 @@ import UIKit
 
 class SoSViewController: BaseViewController {
 
-    @IBOutlet weak var stackView: UIStackView!
+
     @IBOutlet weak var timerLabel: UILabel!
     @IBOutlet weak var callNowButton: UIButton!
-    @IBOutlet weak var cancelButton: UIButton!
+ 
     
     
     var seconds = 10
@@ -20,9 +20,12 @@ class SoSViewController: BaseViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
     
-    stackView.setCustomSpacing(60, after: timerLabel)
+//    stackView.setCustomSpacing(60, after: timerLabel)
        
-        startCountdown()
+//        startCountdown()
+        callNowButton.layer.cornerRadius = callNowButton.frame.height / 2
+        callNowButton.clipsToBounds = true
+
         
     }
     override func viewWillAppear(_ animated: Bool) {
@@ -35,13 +38,11 @@ class SoSViewController: BaseViewController {
 
     @IBAction func callNowTapped(_ sender: UIButton) {
             timer?.invalidate()
-            callSOS()
+        startCountdown()
+//            callSOS()
         }
 
-        @IBAction func cancelTapped(_ sender: UIButton) {
-            timer?.invalidate()
-            navigationController?.popViewController(animated: true)
-        }
+      
     
     func callSOS() {
         let sosNumber = +919342225968
