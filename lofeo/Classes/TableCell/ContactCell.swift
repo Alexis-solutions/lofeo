@@ -9,7 +9,6 @@ import UIKit
 class ContactCell: UICollectionViewCell  {
 
  
-    @IBOutlet weak var AvatarButton: UIButton!
     @IBOutlet weak var nameLabel: UILabel!
     @IBOutlet weak var phoneLabel: UILabel!
     @IBOutlet weak var checkButton: UIButton!

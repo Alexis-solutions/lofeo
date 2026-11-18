@@ -11,6 +11,7 @@ class BaseViewController: UIViewController , CustomFooterViewDelegate {
 
     let footer = CustomFooterView()
     var loader: UIActivityIndicatorView?
+//    var shouldShowFooter = true
 
     override func viewDidLoad() {
         super.viewDidLoad()

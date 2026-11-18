@@ -8,7 +8,7 @@
 struct Member: Codable ,Equatable  {
     var name: String
     
-    var phone: String?
+    var phone: String
    }
 
 enum ContactType : String, Codable{

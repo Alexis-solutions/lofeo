@@ -7,16 +7,43 @@
 
 import UIKit
 import FirebaseDatabase
+import Contacts
+import MessageUI
+import ContactsUI
 
-
-class InviteViewController: UIViewController {
+class InviteViewController: BaseViewController, UICollectionViewDataSource, UICollectionViewDelegateFlowLayout, CNContactPickerDelegate,MFMessageComposeViewControllerDelegate, UISearchBarDelegate{
     
+    func messageComposeViewController(_ controller: MFMessageComposeViewController, didFinishWith result: MessageComposeResult) {
+    
+    }
+    
+    
+    @IBOutlet weak var phoneBtn: UIButton!
+    @IBOutlet weak var watchBtn: UIButton!
+    @IBOutlet weak var phoneView: UIView!
+    @IBOutlet weak var watchView: UIView!
     @IBOutlet weak var inputWatchName: UITextField!
     @IBOutlet weak var inputWatchImei: UITextField!
+    @IBOutlet weak var searchBar: UISearchBar!
+    
+    @IBOutlet weak var contactCollectionView: UICollectionView!
+
+       private let contactStore = CNContactStore()
+       private var contacts: [Member] = []
+    var filteredContacts: [Member] = []
+       
+    
     private var userRelationship = UserRelationships()
     
     override func viewDidLoad() {
         super.viewDidLoad()
+        footer.isHidden = true
+        searchBar.delegate = self
+        
+        phoneBtn.backgroundColor = .white
+        watchBtn.backgroundColor = .clear
+         phoneView.isHidden = false
+        watchView.isHidden = true
         
         let tapGesture = UITapGestureRecognizer(
                target: self,
@@ -24,6 +51,11 @@ class InviteViewController: UIViewController {
            )
            tapGesture.cancelsTouchesInView = false
            view.addGestureRecognizer(tapGesture)
+        
+        contactCollectionView.dataSource = self
+        contactCollectionView.delegate = self
+        
+        checkContactPermission()
         
     }
     override func viewWillAppear(_ animated: Bool) {
@@ -44,10 +76,91 @@ class InviteViewController: UIViewController {
 
           let adjustedHeight = keyboardHeight - bottomSafeArea
 
-//          scrollView.contentInset.bottom = adjustedHeight
-//          scrollView.verticalScrollIndicatorInsets.bottom = adjustedHeight
+
       
     }
+    
+    
+    func collectionView(_ collectionView: UICollectionView,
+                        layout collectionViewLayout: UICollectionViewLayout,
+                        sizeForItemAt indexPath: IndexPath) -> CGSize {
+
+        let width = collectionView.frame.width - 60
+        print("width ", width)
+        return CGSize(width: width, height: 90)
+        
+    }
+    
+    func collectionView(_ collectionView: UICollectionView,
+                        layout collectionViewLayout: UICollectionViewLayout,
+                        insetForSectionAt section: Int) -> UIEdgeInsets {
+        
+        return UIEdgeInsets(top: 10, left: 30, bottom: 10, right: 30)
+    }
+    
+
+    
+    func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
+        return filteredContacts.count
+    }
+
+     func collectionView(
+            _ collectionView: UICollectionView,
+            cellForItemAt indexPath: IndexPath
+        ) -> UICollectionViewCell {
+//
+           let member = filteredContacts[indexPath.item]
+
+            hideLoader()
+            
+            let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "ContactCell", for: indexPath) as! ContactCell
+            
+            cell.backgroundColor = .white
+               cell.contentView.backgroundColor = .white
+            cell.layer.cornerRadius = 20
+            cell.layer.masksToBounds = true
+            
+            cell.nameLabel.text = member.name
+            cell.phoneLabel.text = member.phone
+             cell.checkButton.setImage(UIImage(systemName: "square"), for: .normal)
+              cell.checkButton.setImage(UIImage(systemName: "checkmark.square.fill"), for: .selected)
+              cell.checkButton.tintColor = .deepForest
+            
+            cell.checkButton.tag = indexPath.row
+//            cell1.checkButton.addTarget(self, action: #selector(checkTapped(_:)), for: .touchUpInside)
+//            let isSelected = selectedContacts.contains(where: {
+//                normalizePhone($0.phone) == normalizePhone(contact.phone)
+//            })
+//
+//            cell1.checkButton.isSelected = isSelected
+            
+            return cell
+            
+        }
+    
+    func collectionView(_ collectionView: UICollectionView,
+                        layout collectionViewLayout: UICollectionViewLayout,
+                        minimumLineSpacingForSectionAt section: Int) -> CGFloat {
+        
+        return 20
+    }
+    
+    
+    
+    @IBAction func phoneBtnTapped(_ sender: Any) {
+        phoneView.isHidden = false
+            watchView.isHidden = true
+        phoneBtn.backgroundColor = .white
+           watchBtn.backgroundColor = .clear
+    }
+    
+    @IBAction func watchBtnTapped(_ sender: Any) {
+        phoneView.isHidden = true
+        watchView.isHidden = false
+        watchBtn.backgroundColor = .white
+            phoneBtn.backgroundColor = .clear
+    }
+    
     
     
     @IBAction private func addWatchMember() {
@@ -225,6 +338,97 @@ class InviteViewController: UIViewController {
         }
     }
     
+    private func checkContactPermission() {
+            switch CNContactStore.authorizationStatus(for: .contacts) {
+
+            case .authorized:
+                fetchContacts()
+
+            case .notDetermined:
+                contactStore.requestAccess(for: .contacts) {
+                    [weak self] granted, error in
+
+                    DispatchQueue.main.async {
+                        if granted {
+                            self?.fetchContacts()
+                        } else {
+                            self?.showAlert(
+                                title: "Nothin", message: "Please allow contact access to view your contacts."
+                            )
+                        }
+                    }
+                }
+
+            case .denied, .restricted:
+                showAlert(
+                    title: "Nothing", message: "Please enable contact access in Settings."
+                )
+
+            @unknown default:
+                break
+            }
+        }
+
+       
+    private func fetchContacts() {
+        showLoader()
+        DispatchQueue.global(qos: .userInitiated).async {
+            let keysToFetch: [CNKeyDescriptor] = [
+                CNContactFormatter.descriptorForRequiredKeys(
+                    for: .fullName
+                ),
+                CNContactPhoneNumbersKey as CNKeyDescriptor,
+                CNContactIdentifierKey as CNKeyDescriptor
+            ]
+
+            let request = CNContactFetchRequest(
+                keysToFetch: keysToFetch
+            )
+
+            var fetchedMembers: [Member] = []
+
+            do {
+                try self.contactStore.enumerateContacts(
+                    with: request
+                ) { contact, _ in
+
+                    let name = CNContactFormatter.string(
+                        from: contact,
+                        style: .fullName
+                    ) ?? "Unknown"
+
+                    if contact.phoneNumbers.isEmpty {
+                        fetchedMembers.append(
+                            Member(name: name, phone: "1111111111")
+                        )
+                    } else {
+                        for phoneNumber in contact.phoneNumbers {
+                            fetchedMembers.append(
+                                Member(
+                                    name: name,
+                                    phone: phoneNumber.value.stringValue
+                                )
+                            )
+                        }
+                    }
+                }
+
+                DispatchQueue.main.async {
+                    self.contacts = fetchedMembers
+                    self.contactCollectionView.reloadData()
+                }
+
+            } catch {
+                DispatchQueue.main.async {
+                    self.showAlert(
+                        title: "No", message: "Unable to load contacts: \(error.localizedDescription)"
+                    )
+                }
+            }
+        }
+    }
+
+    
     private func completeRelationshipChange(
         message: String,
         profileChanged: Bool
@@ -277,23 +481,7 @@ class InviteViewController: UIViewController {
             "requestedBy": "9342225968"
         ]
     }
-    
-    private func showAlert(
-        title: String,
-        message: String
-    ) {
-        let alert = UIAlertController(
-            title: title,
-            message: message,
-            preferredStyle: .alert
-        )
 
-        alert.addAction(
-            UIAlertAction(title: "OK", style: .default)
-        )
-
-        present(alert, animated: true)
-    }
     
     private func registerWatchWithBackend(
         imei: String,
@@ -362,10 +550,29 @@ class InviteViewController: UIViewController {
     }
     
     @IBAction func needWatch(_ sender: Any) {
+        
+        if   let vc = storyboard?.instantiateViewController(withIdentifier: "BuyWatchViewController") as? BuyWatchViewController {
+            navigationController?.pushViewController(vc, animated: true)
+            
+        }
     }
     
     @IBAction func Backbtn(_ sender: Any) {
         navigationController?.popViewController(animated: true)
     }
+    
+    func searchBar(_ searchBar: UISearchBar,
+                       textDidChange searchText: String) {
+
+            if searchText.isEmpty {
+                filteredContacts = contacts
+            } else {
+                filteredContacts = contacts.filter {
+                    $0.phone.localizedCaseInsensitiveContains(searchText)
+                }
+            }
+
+            contactCollectionView.reloadData()
+        }
     
 }
